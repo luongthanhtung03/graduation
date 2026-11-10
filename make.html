@@ -15,6 +15,8 @@
     --cream: #f3e6d6;
     --soft: #b29c88;
     --warm: #eba56c;
+    --good: #8fd19e;
+    --bad: #ff8a7a;
     --hair: rgba(235, 165, 108, .22);
   }
   * { box-sizing: border-box; }
@@ -31,33 +33,53 @@
   textarea { min-height: 150px; resize: vertical; line-height: 1.6; }
   input:focus, select:focus, textarea:focus { outline: none; border-color: var(--warm); }
   .hint { font-size: 12px; color: var(--soft); margin-top: 4px; }
-  .hint code { color: var(--warm); }
-  .out { margin-top: 28px; padding: 14px; border: 1px solid var(--hair); border-radius: 10px; background: var(--panel); }
-  .link { font-size: 12px; word-break: break-all; color: var(--soft); max-height: 4.8em; overflow: hidden; }
-  .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; align-items: center; }
-  .len { font-size: 12px; color: var(--soft); }
+  .hint code, .steps code { color: var(--warm); }
+  .warn { color: var(--bad); }
   button, .btn {
     font: inherit; font-weight: 600; font-size: 14px; border-radius: 999px; padding: 8px 18px; cursor: pointer;
-    border: 1px solid var(--warm); text-decoration: none; text-align: center;
+    border: 1px solid var(--warm); text-decoration: none; text-align: center; display: inline-block;
   }
   .primary { background: var(--warm); color: var(--ink); }
   .ghost { background: none; color: var(--warm); }
+  .make { margin-top: 24px; width: 100%; padding: 12px; font-size: 16px; }
+
+  #result { display: none; margin-top: 28px; }
+  #result.on { display: block; }
+  .steps { list-style: none; counter-reset: s; padding: 0; margin: 0; }
+  .steps > li { counter-increment: s; position: relative; padding: 14px 14px 14px 52px; margin-bottom: 12px;
+                border: 1px solid var(--hair); border-radius: 10px; background: var(--panel); }
+  .steps > li::before { content: counter(s); position: absolute; left: 14px; top: 14px; width: 26px; height: 26px; border-radius: 50%;
+                        background: var(--warm); color: var(--ink); font-weight: 600; font-size: 13px; display: grid; place-items: center; }
+  .steps b { font-weight: 600; color: #ffd3a3; }
+  .mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; word-break: break-all; color: var(--soft);
+          background: var(--ink); border-radius: 6px; padding: 8px; margin: 8px 0; max-height: 5.4em; overflow: hidden; }
+  .link { color: var(--cream); font-size: 14px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 8px; }
+  .status { font-size: 13px; }
+  .status.good { color: var(--good); }
+  .status.bad { color: var(--bad); }
+
   h2 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--soft); font-weight: 400; margin: 36px 0 8px; }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(235, 165, 108, .1); font-size: 14px; }
-  li .acts { display: flex; gap: 6px; flex: none; }
-  li button { padding: 4px 12px; font-size: 12px; }
+  ul.hist { list-style: none; padding: 0; margin: 0; }
+  ul.hist li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid rgba(235, 165, 108, .1); font-size: 14px; }
+  ul.hist small { color: var(--soft); }
+  ul.hist .acts { display: flex; gap: 6px; flex: none; }
+  ul.hist button { padding: 4px 12px; font-size: 12px; }
   .empty { color: var(--soft); font-size: 13px; }
 </style>
 </head>
 <body>
 <main>
   <h1>Tạo link mời</h1>
-  <p class="sub">Chỉ dành cho Tùng. Viết tên và lời nhắn, rồi copy link gửi cho người đó.</p>
+  <p class="sub">Chỉ dành cho Tùng. Viết tên và lời nhắn, tạo link, thêm 1 dòng vào guests.txt trên GitHub, rồi gửi link.</p>
 
   <label for="name">Tên khách</label>
-  <input id="name" placeholder="vd: Minh, cô Hai, thầy Nam" maxlength="40" autocomplete="off">
+  <input id="name" placeholder="vd: Đức, cô Hai, thầy Nam" maxlength="40" autocomplete="off">
   <div class="hint">Hiện ở màn hình terminal và thay cho <code>{n}</code> bên dưới.</div>
+
+  <label for="slug">Mã trong link</label>
+  <input id="slug" maxlength="24" autocomplete="off" spellcheck="false">
+  <div class="hint" id="slugHint">Tự tạo từ tên. Chỉ a-z và 0-9. Link sẽ là <code>…/graduation/?to=<span id="slugEx">ma</span>-xxxxxxxx</code></div>
 
   <label for="preset">Mẫu (chọn để điền sẵn, rồi sửa tuỳ ý)</label>
   <select id="preset">
@@ -74,19 +96,41 @@
   <textarea id="msg" maxlength="1500"></textarea>
   <div class="hint"><code>{n}</code> = tên khách. Xuống dòng sẽ được giữ nguyên.</div>
 
-  <div class="out">
-    <div class="link" id="link"></div>
-    <div class="row">
-      <button class="primary" id="copy">Copy link</button>
-      <a class="btn ghost" id="open" target="_blank" rel="noopener">Xem thử</a>
-      <span class="len" id="len"></span>
-    </div>
-  </div>
+  <button class="primary make" id="make">Tạo link</button>
 
-  <h2>Đã copy gần đây (chỉ lưu trên máy này)</h2>
-  <ul id="history"></ul>
+  <section id="result">
+    <ol class="steps">
+      <li>
+        <b>Copy dòng này</b> (lời nhắn đã được mã hoá)
+        <div class="mono" id="line"></div>
+        <button class="primary" id="copyLine">Copy dòng</button>
+      </li>
+      <li>
+        <b>Dán vào guests.txt trên GitHub</b><br>
+        Bấm nút dưới → bấm vào <b>cuối file</b>, xuống một dòng mới → dán (<code>Cmd+V</code>) →
+        bấm nút xanh <b>Commit changes…</b> (góc trên bên phải) → bấm <b>Commit changes</b> lần nữa.
+        <div class="row"><a class="btn ghost" href="https://github.com/luongthanhtung03/graduation/edit/main/guests.txt" target="_blank" rel="noopener">Mở guests.txt trên GitHub</a></div>
+      </li>
+      <li>
+        <b>Đợi khoảng 1 phút, rồi kiểm tra</b>
+        <div class="row"><button class="ghost" id="check">Kiểm tra link</button><span class="status" id="status"></span></div>
+      </li>
+      <li>
+        <b>Copy link và gửi</b>
+        <div class="mono link" id="link"></div>
+        <div class="row">
+          <button class="primary" id="copyLink">Copy link</button>
+          <a class="btn ghost" id="open" target="_blank" rel="noopener">Xem thử</a>
+        </div>
+      </li>
+    </ol>
+  </section>
+
+  <h2>Đã tạo (chỉ lưu trên trình duyệt này)</h2>
+  <ul class="hist" id="history"></ul>
 </main>
 
+<script src="invite-crypto.js"></script>
 <script>
 // Same wording as the default messages in index.html
 const ME = "Tùng";
@@ -98,57 +142,116 @@ const PRESETS = {
 };
 
 const $ = id => document.getElementById(id);
-const nameEl = $("name"), presetEl = $("preset"), dearEl = $("dear"), msgEl = $("msg");
+const nameEl = $("name"), slugEl = $("slug"), presetEl = $("preset"), dearEl = $("dear"), msgEl = $("msg");
+const base = new URL("./", location.href);
 
-// The invite lives next to this page. Online, "./" is the clean URL; as a local file it must be "index.html".
-const base = new URL(location.protocol === "file:" ? "index.html" : "./", location.href);
-
-// JSON -> UTF-8 bytes -> base64url (URL-safe: + becomes -, / becomes _, no = padding)
-function pack(obj) {
-  const bytes = new TextEncoder().encode(JSON.stringify(obj));
-  let bin = "";
-  bytes.forEach(b => bin += String.fromCharCode(b));
-  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-}
-
-function makeLink() {
-  const url = new URL(base);
-  url.searchParams.set("i", pack({ n: nameEl.value.trim(), d: dearEl.value.trim(), m: msgEl.value.trim() }));
-  return url.toString();
-}
-
-function update() {
-  const link = makeLink();
-  $("link").textContent = link;
-  $("open").href = link;
-  $("len").textContent = `${link.length} ký tự`;
-}
+let slugTouched = false;   // stop auto-filling the code once it was typed by hand
+let editing = null;        // history entry being edited: keeps its secret, so the old link keeps working
+let current = null;        // the invite made by the last "Tạo link"
+let liveGuests = null;     // codes already in the live guests.txt
 
 function fillPreset() {
   dearEl.value = PRESETS[presetEl.value].dear;
   msgEl.value = PRESETS[presetEl.value].msg;
-  update();
 }
 
-function loadHistory() { try { return JSON.parse(localStorage.getItem("made") || "[]"); } catch { return []; } }
-function saveHistory(list) { try { localStorage.setItem("made", JSON.stringify(list.slice(0, 100))); } catch {} }
+function slugInfo() {
+  const slug = slugEl.value;
+  $("slugEx").textContent = slug || "ma";
+  const hint = $("slugHint");
+  hint.classList.remove("warn");
+  if (liveGuests?.has(slug) && editing?.slug !== slug) {
+    hint.classList.add("warn");
+    hint.textContent = `Mã "${slug}" đã có người dùng. Hãy đổi mã khác (vd: ${slug}2), nếu không link cũ của mã này sẽ không mở được nữa.`;
+  } else {
+    hint.innerHTML = `Tự tạo từ tên. Chỉ a-z và 0-9. Link sẽ là <code>…/graduation/?to=<span id="slugEx"></span>-xxxxxxxx</code>`;
+    $("slugEx").textContent = slug || "ma";
+  }
+}
 
+nameEl.oninput = () => {
+  if (!slugTouched) slugEl.value = InviteCrypto.slugify(nameEl.value);
+  slugInfo();
+};
+slugEl.oninput = () => {
+  slugTouched = true;
+  slugEl.value = slugEl.value.toLowerCase().replace(/[^a-z0-9]/g, "");
+  slugInfo();
+};
+presetEl.onchange = fillPreset;
+
+$("make").onclick = async () => {
+  const slug = slugEl.value;
+  if (!nameEl.value.trim()) return nameEl.focus();
+  if (!slug) return slugEl.focus();
+  const secret = editing?.slug === slug ? editing.secret : InviteCrypto.newSecret();
+  const invite = { n: nameEl.value.trim(), d: dearEl.value.trim(), m: msgEl.value.trim() };
+  const line = await InviteCrypto.encrypt(slug, secret, invite);
+  const link = new URL(base);
+  link.searchParams.set("to", `${slug}-${secret}`);
+  current = { slug, secret, line, link: link.toString(), ...invite };
+  $("line").textContent = line;
+  $("link").textContent = current.link;
+  $("open").href = current.link;
+  $("status").textContent = "";
+  $("result").classList.add("on");
+  $("result").scrollIntoView({ behavior: "smooth" });
+  saveToHistory(current);
+};
+
+async function copy(text, btn) {
+  const old = btn.textContent;
+  try { await navigator.clipboard.writeText(text); btn.textContent = "Đã copy ✓"; }
+  catch { btn.textContent = "Không copy được, hãy chọn chữ và bấm Cmd+C"; }
+  setTimeout(() => btn.textContent = old, 1800);
+}
+$("copyLine").onclick = () => copy(current.line, $("copyLine"));
+$("copyLink").onclick = () => copy(current.link, $("copyLink"));
+
+$("check").onclick = async () => {
+  const st = $("status");
+  st.className = "status"; st.textContent = "Đang kiểm tra…";
+  try {
+    const got = await InviteCrypto.lookup(current.slug, current.secret);
+    if (got.m !== current.m || got.d !== current.d || got.n !== current.n) throw new Error("old version");
+    st.className = "status good"; st.textContent = `Link đã hoạt động ✓ (${got.n})`;
+  } catch (err) {
+    st.className = "status bad";
+    st.textContent = err.message === "old version"
+      ? "GitHub vẫn đang có bản cũ. Đợi thêm 1 phút rồi bấm lại."
+      : "Chưa thấy dòng này. Đã Commit chưa? Nếu rồi, đợi thêm 1 phút rồi bấm lại.";
+  }
+};
+
+// ===== History (only in this browser) =====
+function loadHistory() { try { return JSON.parse(localStorage.getItem("invites") || "[]"); } catch { return []; } }
+function saveHistory(list) { try { localStorage.setItem("invites", JSON.stringify(list.slice(0, 200))); } catch {} }
+function saveToHistory(item) {
+  saveHistory([item, ...loadHistory().filter(x => x.slug !== item.slug)]);
+  showHistory();
+}
 function showHistory() {
-  const list = loadHistory();
-  const ul = $("history");
+  const list = loadHistory(), ul = $("history");
   ul.innerHTML = "";
   if (!list.length) { ul.innerHTML = `<li class="empty">Chưa có link nào.</li>`; return; }
   for (const item of list) {
     const li = document.createElement("li");
     const who = document.createElement("span");
-    who.textContent = item.name || "(không tên)";
+    who.textContent = item.n + " ";
+    const code = document.createElement("small");
+    code.textContent = `?to=${item.slug}-…` + (liveGuests && !liveGuests.has(item.slug) ? " · chưa có trên GitHub" : "");
+    who.appendChild(code);
     const acts = document.createElement("span");
     acts.className = "acts";
     const edit = document.createElement("button");
     edit.className = "ghost"; edit.textContent = "Sửa";
-    edit.onclick = () => { nameEl.value = item.name; dearEl.value = item.dear; msgEl.value = item.msg; update(); scrollTo(0, 0); };
+    edit.onclick = () => {
+      editing = item; slugTouched = true;
+      nameEl.value = item.n; slugEl.value = item.slug; dearEl.value = item.d; msgEl.value = item.m;
+      slugInfo(); scrollTo({ top: 0, behavior: "smooth" });
+    };
     const again = document.createElement("button");
-    again.className = "ghost"; again.textContent = "Copy lại";
+    again.className = "ghost"; again.textContent = "Copy link";
     again.onclick = () => copy(item.link, again);
     acts.append(edit, again);
     li.append(who, acts);
@@ -156,35 +259,9 @@ function showHistory() {
   }
 }
 
-async function copy(text, btn) {
-  const old = btn.textContent;
-  try {
-    await navigator.clipboard.writeText(text);
-    btn.textContent = "Đã copy ✓";
-  } catch {
-    // clipboard can be blocked (old browser, no permission): select the text so it can be copied by hand
-    getSelection().selectAllChildren($("link"));
-    btn.textContent = "Bấm Cmd/Ctrl+C";
-  }
-  setTimeout(() => btn.textContent = old, 1500);
-}
-
-$("copy").onclick = async () => {
-  if (!nameEl.value.trim()) { nameEl.focus(); return; }
-  const link = makeLink();
-  await copy(link, $("copy"));
-  // one entry per name: copying again for the same person replaces the old link
-  const name = nameEl.value.trim();
-  const list = loadHistory().filter(x => x.name !== name);
-  list.unshift({ name, dear: dearEl.value.trim(), msg: msgEl.value.trim(), link });
-  saveHistory(list);
-  showHistory();
-};
-
-nameEl.oninput = dearEl.oninput = msgEl.oninput = update;
-presetEl.onchange = fillPreset;
 fillPreset();
 showHistory();
+InviteCrypto.fetchGuests().then(g => { liveGuests = g; slugInfo(); showHistory(); }).catch(() => {});
 nameEl.focus();
 </script>
 </body>

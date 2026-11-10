@@ -1,0 +1,3 @@
+# One guest per line: <code> <encrypted invite>
+# Make lines with make.html, then paste them at the end of this file.
+# If a code appears twice, the last line wins.

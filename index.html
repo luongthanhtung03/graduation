@@ -283,6 +283,7 @@
 
 <canvas id="sparks"></canvas>
 
+<script src="invite-crypto.js"></script>
 <script>
 // ===== Settings: edit these =====
 const ME = "Tùng"; // short name, used inside messages
@@ -363,22 +364,36 @@ const TEXT = {
 const params = new URLSearchParams(location.search);
 // The name is escaped before it goes into HTML, so a link like ?to=<script> cannot run code.
 const escapeHtml = s => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-// A custom invite comes packed in ?i= (made by make.html): base64url of JSON { n: name, d: greeting line, m: message }.
-// It is only packed to keep the link short, not secret. Bad or old links fall back to ?to= / ?g=.
-function readInvite() {
+// Custom invites are made by make.html. Three kinds of links:
+//   ?to=duc-k3x9pqab   short link: "duc" is a line in guests.txt, "k3x9pqab" decrypts it (see invite-crypto.js)
+//   ?i=...             older long link: the invite packed into the URL (base64url JSON, not secret)
+//   ?to=Minh&g=family  plain name + one of the GREETINGS groups
+// An invite is { n: name, d: greeting line, m: message }. Anything broken falls back to the defaults.
+const clean = obj => {
+  const str = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
+  return { n: str(obj?.n, 40), d: str(obj?.d, 120), m: str(obj?.m, 1500) };
+};
+function readPacked() {
   const raw = params.get("i");
   if (!raw) return {};
   try {
     const bin = atob(raw.replace(/-/g, "+").replace(/_/g, "/"));
-    const obj = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
-    const str = (v, max) => typeof v === "string" ? v.trim().slice(0, max) : "";
-    return { n: str(obj.n, 40), d: str(obj.d, 120), m: str(obj.m, 1500) };
+    return clean(JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0)))));
   } catch { return {}; }
 }
-const custom = readInvite();
-const rawName = (custom.n || params.get("to") || "").trim().slice(0, 40);
+const shortLink = InviteCrypto.SHORT_LINK.exec(params.get("to") || "");
+async function readShort() {
+  try { return clean(await InviteCrypto.lookup(shortLink[1], shortLink[2])); }
+  catch (err) { console.warn("invite not loaded:", err); return {}; }
+}
 const group = GREETINGS[params.get("g")] ? params.get("g") : "friend";
-const termName = escapeHtml(rawName || "guest");
+let custom = {}, rawName = "", termName = "guest";
+async function loadGuest() {
+  custom = shortLink ? await readShort() : readPacked();
+  const plainName = shortLink ? "" : params.get("to");
+  rawName = (custom.n || plainName || "").trim().slice(0, 40);
+  termName = escapeHtml(rawName || "guest");
+}
 
 // ===== Language =====
 function getSavedLang() { try { return localStorage.getItem("lang"); } catch { return null; } }
@@ -708,7 +723,7 @@ async function goStage3() {
   fin.classList.add("visible");
 }
 
-runIntro();
+loadGuest().then(runIntro);
 </script>
 </body>
 </html>
